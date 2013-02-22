@@ -85,7 +85,7 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
     echo \#define LINUX_COMPILE_DOMAIN
   fi
 
-  echo \#define LINUX_COMPILER \"(Linaro GCC 4.7-2012.11)\"
+  echo \#define LINUX_COMPILER \"Linaro GCC 4.7-2012.11\"
 ) > .tmpcompile
 
 # Only replace the real compile.h if the new one is different,
