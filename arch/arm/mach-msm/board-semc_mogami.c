@@ -181,16 +181,25 @@
 
 #define MSM_PMEM_SF_SIZE	0x1E00000
 #ifdef CONFIG_FB_MSM_HDMI_SII9024A_PANEL
-#define MSM_FB_SIZE             0x530000
+#define MSM_FB_SIZE             0x660000
 #else
-#define MSM_FB_SIZE		0x500000
+#define MSM_FB_SIZE		0x600000 
+/*	MSM_FB_SIZE: Increase in Framebuffer size so it can
+	Hold the extra buffer for triple buffering   
+CTCaer*/
 #endif /* CONFIG_FB_MSM_HDMI_SII9024A_PANEL */
 #define MSM_GPU_PHYS_SIZE       SZ_4M
-#define MSM_PMEM_CAMERA_SIZE    0x3000000
-#define MSM_PMEM_ADSP_SIZE      0x1000000
-    /* Will come back to this later for 480p recording only */
-/* #define MSM_PMEM_CAMERA_SIZE    0x2A00000
-#define MSM_PMEM_ADSP_SIZE      0x0700000 */
+#define MSM_PMEM_CAMERA_SIZE    0x2D00000
+#define MSM_PMEM_ADSP_SIZE      0xA00000
+/*	MSM_PMEM_CAMERA_SIZE: In all occasions (8mp, 720p, stabilizer and more)
+	our camera uses max 42mb of it. Salvaged 2mb out of the 5.
+	MSM_PMEM_ADSP_SIZE: In many occasions (pics, 720p rec, 720p video hw playing,
+	hw audio decoding) our phone uses max 6mb. Salvaged 9mb out of 13.
+	
+	The salvaging is lesser than the max that could be free for stability
+	reasons. Also from checking the Pmems we can see that these are not in
+	fault for choppy video recoding with stabilizer on.
+CTCaer*/
 #define PMEM_KERNEL_EBI1_SIZE   0x600000
 
 #define PMIC_GPIO_INT		27
@@ -4592,12 +4601,31 @@ static void __init msm7x30_fixup(struct machine_desc *desc, struct tag *tags,
 {
 #define MSM_BANK0_BASE			PHYS_OFFSET
 #define MSM_BANK0_SIZE			0x03C00000
-
+/*	Tried many sizes and potitions between 0x03E0000 and 
+	0x07000000 but nothing came up completely bugfree.
+	This 52mb address space is fully used by the ARM9 baseband's
+	hypervisor microkernel OKL4, iguana server and apps (like amss).
+	Boots to android but ARM9 crashes on dsp or baseband (calls/sms) use.
+	Also powering off the phone doesnt work (power management also
+	resides to this co-processor).
+CTCaer*/
 #define MSM_BANK1_BASE			0x07000000
 #define MSM_BANK1_SIZE			0x09000000
-
+/*	This area (0x10000000-0x40000000)  is also a no.
+	Used by many drivers (like KGSL).
+	Boots but never makes it to lockscreen.
+CTCaer*/
 #define MSM_BANK2_BASE			0x40000000
 #define MSM_BANK2_SIZE			0x10000000
+/*	Normally at 0x50000000 Vmalloc are starts. Strangely
+	Defining a mem bank here makes the phone to not even get the screen on
+	
+	After 0x60000000 the membank gets removed because of vmalloc overlap.
+	Our Rays (maybe other mogami boards too) with a fixed 256M vmalloc,
+	boots fine and can get a 2mb with a base addr 0x60000000.
+	I'll do more tests with vmalloc reducing to salvage some ram from the
+	missing 52mb. (Note: I have seen Ray using max 173mb vmalloc.)
+CTCaer*/
 
 	mi->nr_banks = 3;
 	mi->bank[0].start = MSM_BANK0_BASE;
