@@ -79,25 +79,16 @@ struct clkctl_acpu_speed {
 static struct clock_state drv_state = { 0 };
 
 static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 134400 },
-	{ 1, 184320 },
-	{ 2, 249600 },
-	{ 3, 364800 },
-	{ 4, 460800 },
-	{ 5, 576000 },
-	{ 6, 652800 },
-	{ 7, 768000 },
+	{ 0, 122880 },
+	{ 1, 245760 },
+	{ 2, 368640 },
+	{ 3, 768000 },
+	{ 4, 806400 },
+	{ 5, 1024000 },
+	{ 6, 1200000 },
+	{ 7, 1401600 },
 	/* 806.4MHz is updated to 1024MHz at runtime for MSM8x55. */
-	{ 8, 806400 },
-	{ 9, 921600 },
-	{ 10, 1017600 },
-	{ 11, 1113600 },
-	{ 12, 1209600 },
-	{ 13, 1305600 },
-	{ 14, 1401600 },
-	{ 15, 1516800 },
-	{ 16, 1612800 },
-	{ 17, CPUFREQ_TABLE_END },
+	{ 8, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -112,29 +103,20 @@ static struct cpufreq_frequency_table freq_table[] = {
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 //	{ 24576,  SRC_LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
 //	{ 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
-	{ 134400, PLL_3,    5, 5,  61440000,  900, VDD_RAW(900) },
-	{ 184320, PLL_3,    5, 4,  61440000,  900, VDD_RAW(900) },
-	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
-	{ 249600, PLL_3,    5, 2,  61440000,  900, VDD_RAW(900) },
-	{ 364800, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
+	{ 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(825) },
+	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 900, VDD_RAW(850) },
+	{ 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(850) },
+	{ 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(875) },
 	/* AXI has MSMC1 implications. See above. */
-	{ 460800, PLL_1,    2, 0,  153600000, 950, VDD_RAW(950) },
-	{ 576000, PLL_1,    2, 0,  153600000, 1000, VDD_RAW(1000) },
-	{ 652800, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	{ 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	/*
 	 * AXI has MSMC1 implications. See above.
 	 * 806.4MHz is increased to match the SoC's capabilities at runtime
 	 */
 	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
-	{ 921600, PLL_2,    3, 0,  UINT_MAX, 1150, VDD_RAW(1150) },
-	{ 1017600, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1200) },
-	{ 1113600, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1200) },
-	{ 1209600, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1200) },
-	{ 1305600, PLL_2,   3, 0,  UINT_MAX, 1250, VDD_RAW(1250) },
-	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1250, VDD_RAW(1250) },
-	{ 1516800, PLL_2,   3, 0,  UINT_MAX, 1300, VDD_RAW(1300) },
-	{ 1612800, PLL_2,   3, 0,  UINT_MAX, 1300, VDD_RAW(1300) },
+	{ 1024000, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1150) },
+	{ 1200000, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1175) },
+	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1250, VDD_RAW(1200) },
 	{ 0 }
 };
 
