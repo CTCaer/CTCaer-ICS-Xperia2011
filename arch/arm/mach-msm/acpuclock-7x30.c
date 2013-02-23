@@ -84,11 +84,12 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 2, 368640 },
 	{ 3, 768000 },
 	{ 4, 806400 },
+	/* 806.4MHz is updated to 1024MHz at runtime for MSM8x55. */
 	{ 5, 1024000 },
 	{ 6, 1200000 },
 	{ 7, 1401600 },
-	/* 806.4MHz is updated to 1024MHz at runtime for MSM8x55. */
-	{ 8, CPUFREQ_TABLE_END },
+	{ 8, 1612800 },
+	{ 9, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -103,10 +104,10 @@ static struct cpufreq_frequency_table freq_table[] = {
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 //	{ 24576,  SRC_LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
 //	{ 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
-	{ 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(825) },
-	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 900, VDD_RAW(850) },
-	{ 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(850) },
-	{ 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(875) },
+	{ 122880, PLL_3,    5, 5,  61440000,  825, VDD_RAW(825) },
+	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 850, VDD_RAW(850) },
+	{ 245760, PLL_3,    5, 2,  61440000,  850, VDD_RAW(850) },
+	{ 368640, PLL_3,    5, 1,  122800000, 875, VDD_RAW(875) },
 	/* AXI has MSMC1 implications. See above. */
 	{ 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	/*
@@ -114,9 +115,11 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	 * 806.4MHz is increased to match the SoC's capabilities at runtime
 	 */
 	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
-	{ 1024000, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1150) },
-	{ 1200000, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1175) },
-	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1250, VDD_RAW(1200) },
+	{ 1024000, PLL_2,   3, 0,  UINT_MAX, 1150, VDD_RAW(1150) },
+	{ 1200000, PLL_2,   3, 0,  UINT_MAX, 1175, VDD_RAW(1175) },
+	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1200) },
+	{ 1612800, PLL_2,   3, 0,  UINT_MAX, 1300, VDD_RAW(1300) },
+	/* 1.6GHz without UV for stability reasons. Need UV tests. */
 	{ 0 }
 };
 
