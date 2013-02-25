@@ -118,7 +118,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 1024000, PLL_2,   3, 0,  UINT_MAX, 1150, VDD_RAW(1150) },
 	{ 1200000, PLL_2,   3, 0,  UINT_MAX, 1175, VDD_RAW(1175) },
 	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1200) },
-	{ 1612800, PLL_2,   3, 0,  UINT_MAX, 1300, VDD_RAW(1300) },
+	{ 1612800, PLL_2,   3, 0,  UINT_MAX, 1250, VDD_RAW(1250) },
 	/* 1.6GHz without UV for stability reasons. Need UV tests. */
 	{ 0 }
 };
