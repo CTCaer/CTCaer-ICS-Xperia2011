@@ -88,8 +88,9 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 5, 1024000 },
 	{ 6, 1200000 },
 	{ 7, 1401600 },
-	{ 8, 1612800 },
-	{ 9, CPUFREQ_TABLE_END },
+	{ 9, 1516800 },
+	{ 9, 1612800 },
+	{ 10, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -114,12 +115,12 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	 * AXI has MSMC1 implications. See above.
 	 * 806.4MHz is increased to match the SoC's capabilities at runtime
 	 */
-	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
-	{ 1024000, PLL_2,   3, 0,  UINT_MAX, 1150, VDD_RAW(1150) },
-	{ 1200000, PLL_2,   3, 0,  UINT_MAX, 1175, VDD_RAW(1175) },
-	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1200, VDD_RAW(1200) },
-	{ 1612800, PLL_2,   3, 0,  UINT_MAX, 1250, VDD_RAW(1250) },
-	/* 1.6GHz without UV for stability reasons. Need UV tests. */
+	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1000, VDD_RAW(1000) },
+	{ 1024000, PLL_2,   3, 0,  UINT_MAX, 1050, VDD_RAW(1050) },
+	{ 1200000, PLL_2,   3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
+	{ 1401600, PLL_2,   3, 0,  UINT_MAX, 1150, VDD_RAW(1150) },
+	{ 1516800, PLL_2,   3, 0,  UINT_MAX, 1275, VDD_RAW(1275) },
+	{ 1612800, PLL_2,   3, 0,  UINT_MAX, 1300, VDD_RAW(1300) },
 	{ 0 }
 };
 
