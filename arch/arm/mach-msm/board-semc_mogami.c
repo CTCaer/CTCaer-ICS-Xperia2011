@@ -181,16 +181,14 @@
 
 #define MSM_PMEM_SF_SIZE	0x1E00000
 #ifdef CONFIG_FB_MSM_HDMI_SII9024A_PANEL
-#define MSM_FB_SIZE             0x660000
+#define MSM_FB_SIZE             0x700000
 #else
-#define MSM_FB_SIZE		0x600000 
-/*	MSM_FB_SIZE: Increase in Framebuffer size so it can
-	Hold the extra buffer for triple buffering   
-CTCaer*/
+#define MSM_FB_SIZE		0x500000 
+
 #endif /* CONFIG_FB_MSM_HDMI_SII9024A_PANEL */
 #define MSM_GPU_PHYS_SIZE       SZ_4M
-#define MSM_PMEM_CAMERA_SIZE    0x2D00000
-#define MSM_PMEM_ADSP_SIZE      0xA00000
+#define MSM_PMEM_CAMERA_SIZE    0x2B00000
+#define MSM_PMEM_ADSP_SIZE      0x900000
 /*	MSM_PMEM_CAMERA_SIZE: In all occasions (8mp, 720p, stabilizer and more)
 	our camera uses max 42mb of it. Salvaged 2mb out of the 5.
 	MSM_PMEM_ADSP_SIZE: In many occasions (pics, 720p rec, 720p video hw playing,
@@ -4385,6 +4383,34 @@ static void __init shared_vreg_on(void)
 	vreg_helper_on(VREG_L8, 1800);
 }
 
+#ifdef CONFIG_INPUT_KEYRESET
+#include <linux/keyreset.h>
+/* keyreset platform device */
+static int mogami_reset_keys_up[] = {
+       KEY_VOLUMEDOWN,
+       0
+};
+
+static struct keyreset_platform_data mogami_reset_keys_pdata = {
+       .keys_up = mogami_reset_keys_up,
+       .keys_down = {
+               KEY_POWER,
+               KEY_HOME,
+			   KEY_VOLUMEUP,
+               0
+       },
+       .down_time_ms = 5000,
+};
+
+struct platform_device mogami_reset_keys_device = {
+       .name = KEYRESET_NAME,
+       .dev    = {
+               .platform_data = &mogami_reset_keys_pdata,
+       },
+};
+#endif
+
+
 static void __init msm7x30_init(void)
 {
 	if (socinfo_init() < 0)
@@ -4429,6 +4455,9 @@ static void __init msm7x30_init(void)
 	bluetooth_power(0);
 #endif
 
+#ifdef CONFIG_INPUT_KEYRESET
+       platform_device_register(&mogami_reset_keys_device);
+#endif
 	msm_fb_add_devices();
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_device_i2c_init();

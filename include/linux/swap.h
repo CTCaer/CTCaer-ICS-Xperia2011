@@ -152,6 +152,7 @@ enum {
 };
 
 #define SWAP_CLUSTER_MAX 32
+#define COMPACT_CLUSTER_MAX SWAP_CLUSTER_MAX
 
 #define SWAP_MAP_MAX	0x7ffe
 #define SWAP_MAP_BAD	0x7fff
@@ -313,7 +314,6 @@ extern swp_entry_t get_swap_page(void);
 extern swp_entry_t get_swap_page_of_type(int);
 extern void swap_duplicate(swp_entry_t);
 extern int swapcache_prepare(swp_entry_t);
-extern int valid_swaphandles(swp_entry_t, unsigned long *);
 extern void swap_free(swp_entry_t);
 extern void swapcache_free(swp_entry_t, struct page *page);
 extern int free_swap_and_cache(swp_entry_t);

@@ -31,6 +31,17 @@ config IOSCHED_DEADLINE
 	  a disk at any one time, its behaviour is almost identical to the
 	  anticipatory I/O scheduler and so is a good choice.
 
+config IOSCHED_ROW
+	tristate "ROW I/O scheduler"
+	default y
+	---help---
+	  The ROW I/O scheduler gives priority to READ requests over the
+	  WRITE requests when dispatching, without starving WRITE requests.
+	  Requests are kept in priority queues. Dispatching is done in a RR
+	  manner when the dispatch quantum for each queue is calculated
+	  according to queue priority.
+	  Most suitable for mobile devices.
+
 config IOSCHED_CFQ
 	tristate "CFQ I/O scheduler"
 	default y
@@ -82,7 +93,7 @@ config IOSCHED_VR
 
 choice
 	prompt "Default I/O scheduler"
-	default DEFAULT_CFQ
+	default DEFAULT_SIO
 	help
 	  Select the I/O scheduler which will be used by default for all
 	  block devices.
@@ -92,6 +103,16 @@ choice
 
 	config DEFAULT_DEADLINE
 		bool "Deadline" if IOSCHED_DEADLINE=y
+
+	config DEFAULT_ROW
+		bool "ROW" if IOSCHED_ROW=y
+		help
+		  The ROW I/O scheduler gives priority to READ requests
+		  over the WRITE requests when dispatching, without starving
+		  WRITE requests. Requests are kept in priority queues.
+		  Dispatching is done in a RR manner when the dispatch quantum
+		  for each queue is defined according to queue priority.
+		  Most suitable for mobile devices.
 
 	config DEFAULT_CFQ
 		bool "CFQ" if IOSCHED_CFQ=y
@@ -119,6 +140,7 @@ config DEFAULT_IOSCHED
 	default "bfq" if DEFAULT_BFQ
 	default "sio" if DEFAULT_SIO
 	default "vr" if DEFAULT_VR
+	default "row" if DEFAULT_ROW
 
 endmenu
 

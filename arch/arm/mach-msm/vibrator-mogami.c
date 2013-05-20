@@ -199,7 +199,7 @@ void __init msm_init_pmic_vibrator(void)
 {
 	INIT_WORK(&vibrator_work, update_vibrator);
 
-	vibrator_workqueue = create_workqueue("vibrator_workqueue");
+	vibrator_workqueue = create_rt_workqueue("vibrator_workqueue");
 	if (vibrator_workqueue == NULL) {
 		printk(KERN_ERR "vibrator_workqueue=NULL\n");
 		return;

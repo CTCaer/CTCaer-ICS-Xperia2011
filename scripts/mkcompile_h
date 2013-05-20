@@ -65,8 +65,8 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
 
   if [ -z "$KBUILD_BUILD_TIMESTAMP" ]; then
 	echo \#define LINUX_COMPILE_TIME \"`date +%T`\"
-	echo \#define LINUX_COMPILE_BY \"CTCaer-v2.6\"
-	echo \#define LINUX_COMPILE_HOST \"1.6GHz+VDD\"
+	echo \#define LINUX_COMPILE_BY \"CTCaer-v2.8\"
+	echo \#define LINUX_COMPILE_HOST \"1,4GHz+UV"
   else
 	echo \#define LINUX_COMPILE_TIME \"`date --date="$TIMESTAMP" +%R:%S`\"
 	echo \#define LINUX_COMPILE_BY \"BuildUser\"
@@ -84,8 +84,8 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   else
     echo \#define LINUX_COMPILE_DOMAIN
   fi
-
-  echo \#define LINUX_COMPILER \"`$CC -v 2>&1 | tail -n 1`\"
+LINARO="()) (gcc Linaro 4.7.3"
+  echo \#define LINUX_COMPILER \"$LINARO\"
 ) > .tmpcompile
 
 # Only replace the real compile.h if the new one is different,

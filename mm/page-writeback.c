@@ -566,7 +566,7 @@ static void balance_dirty_pages(struct address_space *mapping,
 		if (pages_written >= write_chunk)
 			break;		/* We've done our duty */
 
-		__set_current_state(TASK_INTERRUPTIBLE);
+		__set_current_state(TASK_UNINTERRUPTIBLE);
 		io_schedule_timeout(pause);
 
 		/*
@@ -683,10 +683,6 @@ void throttle_vm_writeout(gfp_t gfp_mask)
         }
 }
 
-static void laptop_timer_fn(unsigned long unused);
-
-static DEFINE_TIMER(laptop_mode_wb_timer, laptop_timer_fn, 0, 0);
-
 /*
  * sysctl handler for /proc/sys/vm/dirty_writeback_centisecs
  */
@@ -697,21 +693,19 @@ int dirty_writeback_centisecs_handler(ctl_table *table, int write,
 	return 0;
 }
 
-static void do_laptop_sync(struct work_struct *work)
+void laptop_mode_timer_fn(unsigned long data)
 {
-	wakeup_flusher_threads(0);
-	kfree(work);
-}
+	struct request_queue *q = (struct request_queue *)data;
+	int nr_pages = global_page_state(NR_FILE_DIRTY) +
+		global_page_state(NR_UNSTABLE_NFS);
 
-static void laptop_timer_fn(unsigned long unused)
-{
-	struct work_struct *work;
+	/*
+	 * We want to write everything out, not just down to the dirty
+	 * threshold
+	 */
 
-	work = kmalloc(sizeof(*work), GFP_ATOMIC);
-	if (work) {
-		INIT_WORK(work, do_laptop_sync);
-		schedule_work(work);
-	}
+	if (bdi_has_dirty_io(&q->backing_dev_info))
+		bdi_start_writeback(&q->backing_dev_info, NULL, nr_pages);
 }
 
 /*
@@ -719,9 +713,9 @@ static void laptop_timer_fn(unsigned long unused)
  * of all dirty data a few seconds from now.  If the flush is already scheduled
  * then push it back - the user is still using the disk.
  */
-void laptop_io_completion(void)
+void laptop_io_completion(struct backing_dev_info *info)
 {
-	mod_timer(&laptop_mode_wb_timer, jiffies + laptop_mode);
+	mod_timer(&info->laptop_mode_wb_timer, jiffies + laptop_mode);
 }
 
 /*
@@ -731,7 +725,13 @@ void laptop_io_completion(void)
  */
 void laptop_sync_completion(void)
 {
-	del_timer(&laptop_mode_wb_timer);
+	struct backing_dev_info *bdi;
+	rcu_read_lock();
+
+	list_for_each_entry_rcu(bdi, &bdi_list, bdi_list)
+		del_timer(&bdi->laptop_mode_wb_timer);
+
+	rcu_read_unlock();
 }
 
 /*
@@ -821,7 +821,6 @@ int write_cache_pages(struct address_space *mapping,
 		      struct writeback_control *wbc, writepage_t writepage,
 		      void *data)
 {
-	struct backing_dev_info *bdi = mapping->backing_dev_info;
 	int ret = 0;
 	int done = 0;
 	struct pagevec pvec;
@@ -833,11 +832,6 @@ int write_cache_pages(struct address_space *mapping,
 	int cycled;
 	int range_whole = 0;
 	long nr_to_write = wbc->nr_to_write;
-
-	if (wbc->nonblocking && bdi_write_congested(bdi)) {
-		wbc->encountered_congestion = 1;
-		return 0;
-	}
 
 	pagevec_init(&pvec, 0);
 	if (wbc->range_cyclic) {
@@ -956,12 +950,6 @@ continue_unlock:
 					done = 1;
 					break;
 				}
-			}
-
-			if (wbc->nonblocking && bdi_write_congested(bdi)) {
-				wbc->encountered_congestion = 1;
-				done = 1;
-				break;
 			}
 		}
 		pagevec_release(&pvec);

@@ -310,6 +310,7 @@ void blk_unplug_timeout(unsigned long data)
 	trace_block_unplug_timer(q);
 	kblockd_schedule_work(q, &q->unplug_work);
 }
+EXPORT_SYMBOL(blk_put_queue);
 
 void blk_unplug(struct request_queue *q)
 {
@@ -391,8 +392,15 @@ EXPORT_SYMBOL(blk_sync_queue);
  * Description:
  *    See @blk_run_queue. This variant must be called with the queue lock
  *    held and interrupts disabled.
- *
+ *    Device driver will be notified of an urgent request
+ *    pending under the following conditions:
+ *    1. The driver and the current scheduler support urgent reques handling
+ *    2. There is an urgent request pending in the scheduler
+ *    3. There isn't already an urgent request in flight, meaning previously
+ *       notified urgent request completed (!q->notified_urgent)
+ * 
  */
+
 void __blk_run_queue(struct request_queue *q)
 {
 	blk_remove_plug(q);
@@ -408,8 +416,15 @@ void __blk_run_queue(struct request_queue *q)
 	 * handling reinvoke the handler shortly if we already got there.
 	 */
 	if (!queue_flag_test_and_set(QUEUE_FLAG_REENTER, q)) {
-		q->request_fn(q);
-		queue_flag_clear(QUEUE_FLAG_REENTER, q);
+		if (!q->notified_urgent &&
+				q->elevator->ops->elevator_is_urgent_fn &&
+			q->urgent_request_fn &&
+			q->elevator->ops->elevator_is_urgent_fn(q)) {
+			q->notified_urgent = true;
+			q->urgent_request_fn(q);
+		} else
+			q->request_fn(q);
+			queue_flag_clear(QUEUE_FLAG_REENTER, q);
 	} else {
 		queue_flag_set(QUEUE_FLAG_PLUGGED, q);
 		kblockd_schedule_work(q, &q->unplug_work);
@@ -450,6 +465,7 @@ void blk_cleanup_queue(struct request_queue *q)
 	 */
 	blk_sync_queue(q);
 
+	del_timer_sync(&q->backing_dev_info.laptop_mode_wb_timer);
 	mutex_lock(&q->sysfs_lock);
 	queue_flag_set_unlocked(QUEUE_FLAG_DEAD, q);
 	mutex_unlock(&q->sysfs_lock);
@@ -510,6 +526,8 @@ struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 		return NULL;
 	}
 
+	setup_timer(&q->backing_dev_info.laptop_mode_wb_timer,
+		laptop_mode_timer_fn, (unsigned long) q);
 	init_timer(&q->unplug_timer);
 	setup_timer(&q->timeout, blk_rq_timed_out_timer, (unsigned long) q);
 	INIT_LIST_HEAD(&q->timeout_list);
@@ -612,6 +630,7 @@ int blk_get_queue(struct request_queue *q)
 
 	return 1;
 }
+EXPORT_SYMBOL(blk_get_queue);
 
 static inline void blk_free_request(struct request_queue *q, struct request *rq)
 {
@@ -958,6 +977,50 @@ void blk_requeue_request(struct request_queue *q, struct request *rq)
 	elv_requeue_request(q, rq);
 }
 EXPORT_SYMBOL(blk_requeue_request);
+
+/**
+ * blk_reinsert_request() - Insert a request back to the scheduler
+ * @q:		request queue
+ * @rq:		request to be inserted
+ *
+ * This function inserts the request back to the scheduler as if
+ * it was never dispatched.
+ *
+ * Return: 0 on success, error code on fail
+ */
+int blk_reinsert_request(struct request_queue *q, struct request *rq)
+{
+	if (unlikely(!rq) || unlikely(!q))
+		return -EIO;
+
+	blk_delete_timer(rq);
+	blk_clear_rq_complete(rq);
+	trace_block_rq_requeue(q, rq);
+
+	if (blk_rq_tagged(rq))
+		blk_queue_end_tag(q, rq);
+
+	BUG_ON(blk_queued_rq(rq));
+
+	return elv_reinsert_request(q, rq);
+}
+EXPORT_SYMBOL(blk_reinsert_request);
+
+/**
+ * blk_reinsert_req_sup() - check whether the scheduler supports
+ *          reinsertion of requests
+ * @q:		request queue
+ *
+ * Returns true if the current scheduler supports reinserting
+ * request. False otherwise
+ */
+bool blk_reinsert_req_sup(struct request_queue *q)
+{
+	if (unlikely(!q))
+		return false;
+	return q->elevator->ops->elevator_reinsert_req_fn ? true : false;
+}
+EXPORT_SYMBOL(blk_reinsert_req_sup);
 
 /**
  * blk_insert_request - insert a special request into a request queue
@@ -1921,8 +1984,17 @@ struct request *blk_fetch_request(struct request_queue *q)
 	struct request *rq;
 
 	rq = blk_peek_request(q);
-	if (rq)
+	if (rq) {
+		/*
+		 * Assumption: the next request fetched from scheduler after we
+		 * notified "urgent request pending" - will be the urgent one
+		 */
+			if (q->notified_urgent && !q->dispatched_urgent) {
+				q->dispatched_urgent = true;
+				(void)blk_mark_rq_urgent(rq);
+			}
 		blk_start_request(rq);
+	}
 	return rq;
 }
 EXPORT_SYMBOL(blk_fetch_request);
@@ -2110,7 +2182,7 @@ static void blk_finish_request(struct request *req, int error)
 	BUG_ON(blk_queued_rq(req));
 
 	if (unlikely(laptop_mode) && blk_fs_request(req))
-		laptop_io_completion();
+		laptop_io_completion(&req->q->backing_dev_info);
 
 	blk_delete_timer(req);
 

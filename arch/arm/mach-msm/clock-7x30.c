@@ -346,6 +346,7 @@ static struct clk_freq_tbl clk_tbl_vpe[] = {
 	F_MND8(122880000, 22, 15, PLL3, 3,   1,   2, NOMINAL),
 	F_MND8(147456000, 22, 15, PLL3, 1,   1,   5, NOMINAL),
 	F_MND8(153600000, 22, 15, PLL1, 1,   1,   5, NOMINAL),
+	F_MND8(170667000, 22, 15, PLL1, 1,   2,   9, NOMINAL),
 	F_END,
 };
 

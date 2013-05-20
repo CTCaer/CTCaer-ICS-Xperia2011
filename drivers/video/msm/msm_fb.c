@@ -57,6 +57,7 @@ extern int load_565rle_image(char *filename);
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
+static bool align_buffer = false;
 
 static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
@@ -681,6 +682,41 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	return ret;
 }
 
+int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp)
+{
+	struct msm_panel_info *panel_info = &mfd->panel_info;
+	int remainder, yres, offset;
+
+    if (!align_buffer)
+    {
+        return fbi->var.xoffset * bpp + fbi->var.yoffset * fbi->fix.line_length;
+    }
+
+	if (panel_info->mode2_yres != 0) {
+		yres = panel_info->mode2_yres;
+		remainder = (fbi->fix.line_length*yres) & (PAGE_SIZE - 1);
+	} else {
+		yres = panel_info->yres;
+		remainder = (fbi->fix.line_length*yres) & (PAGE_SIZE - 1);
+	}
+
+	if (!remainder)
+		remainder = PAGE_SIZE;
+
+	if (fbi->var.yoffset < yres) {
+		offset = (fbi->var.xoffset * bpp);
+				/* iBuf->buf +=	fbi->var.xoffset * bpp + 0 *
+				yres * fbi->fix.line_length; */
+	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
+		offset = (fbi->var.xoffset * bpp + yres *
+		fbi->fix.line_length + PAGE_SIZE - remainder);
+	} else {
+		offset = (fbi->var.xoffset * bpp + 2 * yres *
+		fbi->fix.line_length + 2 * (PAGE_SIZE - remainder));
+	}
+	return offset;
+}
+
 static void msm_fb_fillrect(struct fb_info *info,
 			    const struct fb_fillrect *rect)
 {
@@ -834,6 +870,19 @@ static struct fb_ops msm_fb_ops = {
 	.fb_mmap = msm_fb_mmap,
 };
 
+static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
+{
+	/* The adreno GPU hardware requires that the pitch be aligned to
+	   32 pixels for color buffers, so for the cases where the GPU
+	   is writing directly to fb0, the framebuffer pitch
+	   also needs to be 32 pixel aligned */
+
+	if (fb_index == 0)
+		return ALIGN(xres, 32) * bpp;
+	else
+		return xres * bpp;
+}
+
 static int msm_fb_register(struct msm_fb_data_type *mfd)
 {
 	int ret = -ENODEV;
@@ -844,6 +893,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	struct fb_var_screeninfo *var;
 	int *id;
 	int fbram_offset;
+	int remainder, remainder_mode2;
 
 	/*
 	 * fb info initialization
@@ -987,19 +1037,32 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	/* The adreno GPU hardware requires that the pitch be aligned to
-	   32 pixels for color buffers, so for the cases where the GPU
-	   is writing directly to fb0, the framebuffer pitch
-	   also needs to be 32 pixel aligned */
+	fix->line_length = msm_fb_line_length(mfd->index, panel_info->xres,
+					      bpp);
 
-	if (mfd->index == 0)
-		fix->line_length = ALIGN(panel_info->xres, 32) * bpp;
-	else
-		fix->line_length = panel_info->xres * bpp;
+	/* Make sure all buffers can be addressed on a page boundary by an x
+	 * and y offset */
 
-	fix->smem_len = fix->line_length * panel_info->yres * mfd->fb_page;
+	remainder = (fix->line_length * panel_info->yres) & (PAGE_SIZE - 1);
+					/* PAGE_SIZE is a power of 2 */
+	if (!remainder)
+		remainder = PAGE_SIZE;
+	remainder_mode2 = (fix->line_length *
+				panel_info->mode2_yres) & (PAGE_SIZE - 1);
+	if (!remainder_mode2)
+		remainder_mode2 = PAGE_SIZE;
 
-	fix->smem_len += 128 * 1024;
+	/* calculate smem_len based on max size of two supplied modes */
+	fix->smem_len = MAX((msm_fb_line_length(mfd->index, panel_info->xres,
+					      bpp) *
+			    panel_info->yres + PAGE_SIZE -
+				remainder) * mfd->fb_page,
+			    (msm_fb_line_length(mfd->index,
+					       panel_info->mode2_xres,
+					       bpp) *
+			    panel_info->mode2_yres + PAGE_SIZE -
+				remainder_mode2) * mfd->fb_page);
+
 
 	mfd->var_xres = panel_info->xres;
 	mfd->var_yres = panel_info->yres;
@@ -1396,6 +1459,7 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	int hole_offset;
 
 	if (var->rotate != FB_ROTATE_UR)
 		return -EINVAL;
@@ -1481,14 +1545,29 @@ static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
 
-	if ((var->xres > mfd->panel_info.xres) ||
-		(var->yres > mfd->panel_info.yres))
+	if ((var->xres > MAX(mfd->panel_info.xres,
+			     mfd->panel_info.mode2_xres)) ||
+		(var->yres > MAX(mfd->panel_info.yres,
+				 mfd->panel_info.mode2_yres)))
 		return -EINVAL;
 
 	if (var->xoffset > (var->xres_virtual - var->xres))
 		return -EINVAL;
 
-	if (var->yoffset > (var->yres_virtual - var->yres))
+	if (!mfd->panel_info.mode2_yres)
+		hole_offset = (mfd->fbi->fix.line_length *
+			mfd->panel_info.yres) % PAGE_SIZE;
+	else
+		hole_offset = (mfd->fbi->fix.line_length *
+			mfd->panel_info.mode2_yres) % PAGE_SIZE;
+
+	if (!hole_offset) {
+		hole_offset = PAGE_SIZE - hole_offset;
+		hole_offset = hole_offset/mfd->fbi->fix.line_length;
+	}
+
+	if (var->yoffset > (var->yres_virtual - var->yres + (hole_offset *
+							(mfd->fb_page - 1))))
 		return -EINVAL;
 
 	return 0;
@@ -1541,6 +1620,8 @@ static int msm_fb_set_par(struct fb_info *info)
 		mfd->var_pixclock = var->pixclock;
 		blank = 1;
 	}
+	mfd->fbi->fix.line_length = msm_fb_line_length(mfd->index, var->xres,
+						       var->bits_per_pixel/8);
 
 	if (blank) {
 		msm_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
@@ -2929,5 +3010,7 @@ int __init msm_fb_init(void)
 
 	return 0;
 }
+
+module_param(align_buffer, bool, 0644);
 
 module_init(msm_fb_init);

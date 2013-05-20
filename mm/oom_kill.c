@@ -27,6 +27,8 @@
 #include <linux/notifier.h>
 #include <linux/memcontrol.h>
 #include <linux/security.h>
+#include <linux/ratelimit.h>
+
 
 int sysctl_panic_on_oom;
 int sysctl_oom_kill_allocating_task;
@@ -49,6 +51,26 @@ static int has_intersects_mems_allowed(struct task_struct *tsk)
 	} while (t != tsk);
 
 	return 0;
+}
+
+/**
+ * The process p may have detached its own ->mm while exiting or through
+ * use_mm(), but one or more of its subthreads may still have a valid
+ * pointer.  Return p, or any of its subthreads with a valid ->mm, with
+ * task_lock() held.
+ */
+
+struct task_struct *find_lock_task_mm(struct task_struct *p)
+{
+	struct task_struct *t = p;
+	do {
+                 task_lock(t);
+                 if (likely(t->mm))
+                         return t;
+                 task_unlock(t);
+         } while_each_thread(p, t);
+ 
+         return NULL;
 }
 
 /**
@@ -394,8 +416,10 @@ static int oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 			    const char *message)
 {
 	struct task_struct *c;
+	static DEFINE_RATELIMIT_STATE(oom_rs, DEFAULT_RATELIMIT_INTERVAL,
+					DEFAULT_RATELIMIT_BURST);
 
-	if (printk_ratelimit()) {
+	if (__ratelimit(&oom_rs)) {
 		printk(KERN_WARNING "%s invoked oom-killer: "
 			"gfp_mask=0x%x, order=%d, oom_adj=%d\n",
 			current->comm, gfp_mask, order,

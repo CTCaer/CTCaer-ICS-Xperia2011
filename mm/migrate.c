@@ -38,7 +38,8 @@
 
 /*
  * migrate_prep() needs to be called before we start compiling a list of pages
- * to be migrated using isolate_lru_page().
+ * to be migrated using isolate_lru_page(). If scheduling work on other CPUs is
+ * undesirable, use migrate_prep_local()
  */
 int migrate_prep(void)
 {
@@ -49,6 +50,14 @@ int migrate_prep(void)
 	 * pages that may be busy.
 	 */
 	lru_add_drain_all();
+
+	return 0;
+}
+
+/* Do the necessary work of migrate_prep but not if it involves other CPUs */
+int migrate_prep_local(void)
+{
+	lru_add_drain();
 
 	return 0;
 }
@@ -172,17 +181,14 @@ static void remove_anon_migration_ptes(struct page *old, struct page *new)
 {
 	struct anon_vma *anon_vma;
 	struct vm_area_struct *vma;
-	unsigned long mapping;
-
-	mapping = (unsigned long)new->mapping;
-
-	if (!mapping || (mapping & PAGE_MAPPING_ANON) == 0)
-		return;
 
 	/*
 	 * We hold the mmap_sem lock. So no need to call page_lock_anon_vma.
 	 */
-	anon_vma = (struct anon_vma *) (mapping - PAGE_MAPPING_ANON);
+	anon_vma = page_anon_vma(new);
+	if (!anon_vma)
+		return;
+
 	spin_lock(&anon_vma->lock);
 
 	list_for_each_entry(vma, &anon_vma->head, anon_vma_node)
@@ -1094,14 +1100,14 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 		return -EPERM;
 
 	/* Find the mm_struct */
-	read_lock(&tasklist_lock);
+	rcu_read_lock();
 	task = pid ? find_task_by_vpid(pid) : current;
 	if (!task) {
-		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
 		return -ESRCH;
 	}
 	mm = get_task_mm(task);
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	if (!mm)
 		return -EINVAL;
