@@ -66,7 +66,7 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   if [ -z "$KBUILD_BUILD_TIMESTAMP" ]; then
 	echo \#define LINUX_COMPILE_TIME \"`date +%T`\"
 	echo \#define LINUX_COMPILE_BY \"CTCaer-v2.8\"
-	echo \#define LINUX_COMPILE_HOST \"1,4GHz+UV"
+	echo \#define LINUX_COMPILE_HOST \"1,4GHz+UV\"
   else
 	echo \#define LINUX_COMPILE_TIME \"`date --date="$TIMESTAMP" +%R:%S`\"
 	echo \#define LINUX_COMPILE_BY \"BuildUser\"
