@@ -194,6 +194,9 @@ static unsigned long ksm_pages_sharing;
 /* The number of nodes in the unstable tree */
 static unsigned long ksm_pages_unshared;
 
+/* The percent of total pages used freed */
+static unsigned int ksm_saved_memory;
+
 /*
  * Number of pages ksmd should scan in one batch. This is the top speed for
  * richly duplicated areas.
@@ -4560,6 +4563,16 @@ static ssize_t pages_sharing_show(struct kobject *kobj,
 }
 KSM_ATTR_RO(pages_sharing);
 
+static ssize_t saved_memory_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *buf)
+{
+	ksm_saved_memory = 100-(ksm_pages_unshared+ksm_pages_shared)*100
+						/(ksm_pages_unshared+ksm_pages_sharing);
+	return sprintf(buf, "%u%% of total used memory pages freed.\n",
+							ksm_saved_memory);
+}
+KSM_ATTR_RO(saved_memory);
+
 static ssize_t pages_unshared_show(struct kobject *kobj,
 				   struct kobj_attribute *attr, char *buf)
 {
@@ -4627,6 +4640,7 @@ static struct attribute *ksm_attrs[] = {
 	&run_attr.attr,
 	&pages_shared_attr.attr,
 	&pages_sharing_attr.attr,
+	&saved_memory_attr.attr,
 	&pages_unshared_attr.attr,
 	&full_scans_attr.attr,
 	&min_scan_ratio_attr.attr,
